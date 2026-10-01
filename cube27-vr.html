@@ -270,8 +270,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         <label class="ctl" for="anchor">Anchor <select id="anchor"><option value="room">Room · you sit at the centre</option><option value="head">Head · the cube turns with you</option></select></label>
         <button class="primary" id="vrBtn" disabled>Enter VR</button>
       </div>
+      <div class="row">
+        <label class="ctl" for="vrSize">Size <input type="range" id="vrSize" min="20" max="400" step="5" value="100"><output id="vrSizeOut">100%</output></label>
+        <button class="toggle" id="vrReset">Reset size and place</button>
+      </div>
       <p class="note" id="vrStatus">Checking for a headset…</p>
-      <p class="note">In VR, the trigger (or a pinch) points at a cube position to answer or inspect, and toggles play in practice modes. The grip button also toggles play. Choose the mode here before you enter.</p>
+      <p class="note">Controls in VR. Trigger or pinch: point at a position to answer or inspect; pointing at empty space plays or pauses. Right stick: up makes the cube bigger, down smaller, left and right turn it around you. Left stick: slides the cube where you push it. Hold grip: grab the cube and move it; grip with both hands and pull apart or together to resize. B or Y: play or pause. A or X: reset size and place. With hand tracking, set the size here before you enter. In Head anchor the cube stays centred on your head, so only size changes.</p>
     </div>
   </aside>
 </div>
@@ -529,8 +533,11 @@ function pick(cx,cy){const r=canvas.getBoundingClientRect();let best=null,bs=1e9
 function resize(){if(renderer.xr.isPresenting)return;const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix();}
 if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);else window.addEventListener('resize',resize);
 resize();
+let lastT=0;
 function frame(t){
   const xrOn=renderer.xr.isPresenting;
+  const dt=lastT?Math.min(.1,(t-lastT)/1000):0;lastT=t;
+  if(xrOn){vrSticks(dt);updateGrabs();}
   if(!xrOn){
     if(cam.orbit&&!drag&&!reduce){cam.th+=.0025;cam.tth=cam.th;}
     if(!drag){const k=reduce?1:.12;cam.th+=(cam.tth-cam.th)*k;cam.ph+=(cam.tph-cam.ph)*k;}
@@ -610,16 +617,19 @@ function playBeat(b){if(!soundOn||!actx)return;const t=actx.currentTime+.02;
   if(pts&&pts.length){const k=Math.min(pts.length,3),g=.17/Math.sqrt(k);pts.slice(0,3).forEach(n=>voice(n,t,g));}
   else if(b.sound==='tick')tick(t);}
 function sayPoint(n,delay){if(!soundOn||!actx)return;voice(n,actx.currentTime+(delay||.02),.18);}
-const _p=new THREE.Vector3(),_q=new THREE.Quaternion(),_f=new THREE.Vector3(),_u=new THREE.Vector3();
+const _p=new THREE.Vector3(),_q=new THREE.Quaternion(),_f=new THREE.Vector3(),_u=new THREE.Vector3(),_rq=new THREE.Quaternion();
 function setListener(px,py,pz,fx,fy,fz,ux,uy,uz){const Ls=actx.listener;
   if(Ls.positionX){Ls.positionX.value=px;Ls.positionY.value=py;Ls.positionZ.value=pz;Ls.forwardX.value=fx;Ls.forwardY.value=fy;Ls.forwardZ.value=fz;Ls.upX.value=ux;Ls.upY.value=uy;Ls.upZ.value=uz;}
   else{Ls.setPosition(px,py,pz);Ls.setOrientation(fx,fy,fz,ux,uy,uz);}}
 let listenerIdentity=false;
 function updateListener(xrOn){
   if(!actx)return;
-  if(xrOn&&anchor==='room'){ // the cube stays in the room, so the ears move through it
-    camera.getWorldPosition(_p);camera.getWorldQuaternion(_q);_f.set(0,0,-1).applyQuaternion(_q);_u.set(0,1,0).applyQuaternion(_q);
-    const k=1/(VRS*S);setListener(_p.x*k,_p.y*k,_p.z*k,_f.x,_f.y,_f.z,_u.x,_u.y,_u.z);listenerIdentity=false;
+  if(xrOn&&anchor==='room'){ // the cube stays in the room, so the ears move through it: express the head pose in the cube's own frame
+    camera.getWorldPosition(_p);camera.getWorldQuaternion(_q);
+    cubeRoot.updateMatrixWorld();cubeRoot.worldToLocal(_p);_p.multiplyScalar(1/S);
+    cubeRoot.getWorldQuaternion(_rq);_rq.invert();
+    _f.set(0,0,-1).applyQuaternion(_q).applyQuaternion(_rq);_u.set(0,1,0).applyQuaternion(_q).applyQuaternion(_rq);
+    setListener(_p.x,_p.y,_p.z,_f.x,_f.y,_f.z,_u.x,_u.y,_u.z);listenerIdentity=false;
   }else if(!listenerIdentity){setListener(0,0,0,0,0,-1,0,1,0);listenerIdentity=true;}
 }
 const soundBtn=$('soundBtn');
@@ -779,11 +789,64 @@ function tap(cx,cy){const n=pick(cx,cy);if(n==null)return;
 /* ---------- Meta Quest (WebXR) ---------- */
 let anchor='room',xrSession=null;
 const vrBtn=$('vrBtn'),vrStatus=$('vrStatus');
-function applyAnchor(){if(!renderer.xr.isPresenting)return;if(anchor==='head')camera.add(cubeRoot);else scene.add(cubeRoot);cubeRoot.position.set(0,0,0);cubeRoot.quaternion.identity();listenerIdentity=false;}
+/* Size and placement in VR: a multiplier on the base scale, plus an offset and a turn (Room anchor only) */
+const VR={scale:1,offset:new THREE.Vector3(),yaw:0};
+try{const s=+localStorage.getItem('cube27-vrsize');if(s>=.2&&s<=4)VR.scale=s;}catch(e){}
+const vrSizeEl=$('vrSize');
+function syncSizeUI(){vrSizeEl.value=Math.round(VR.scale*100);$('vrSizeOut').textContent=Math.round(VR.scale*100)+'%';}
+function applyVrTransform(){
+  if(!renderer.xr.isPresenting)return;
+  cubeRoot.scale.setScalar(VRS*VR.scale);
+  if(anchor==='room'){cubeRoot.position.copy(VR.offset);cubeRoot.rotation.set(0,VR.yaw,0);}
+  else{cubeRoot.position.set(0,0,0);cubeRoot.rotation.set(0,0,0);}
+}
+function setVrScale(s){VR.scale=clamp(s,.2,4);syncSizeUI();applyVrTransform();try{localStorage.setItem('cube27-vrsize',String(VR.scale));}catch(e){}}
+function resetVr(){VR.offset.set(0,0,0);VR.yaw=0;setVrScale(1);}
+vrSizeEl.addEventListener('input',()=>setVrScale(vrSizeEl.value/100));
+$('vrReset').addEventListener('click',resetVr);
+syncSizeUI();
+function applyAnchor(){if(!renderer.xr.isPresenting)return;if(anchor==='head')camera.add(cubeRoot);else scene.add(cubeRoot);applyVrTransform();listenerIdentity=false;}
 $('anchor').addEventListener('change',e=>{anchor=e.target.value;applyAnchor();});
+const grabs=new Map();let twoHand=null;
+const _a=new THREE.Vector3(),_b=new THREE.Vector3();
+function ctrlPos(c,v){return c.getWorldPosition(v||new THREE.Vector3());}
+function rebaseGrabs(){grabs.forEach((g,c)=>{g.start=ctrlPos(c);g.root=VR.offset.clone();});
+  if(grabs.size===2){const [c1,c2]=[...grabs.keys()];twoHand={d0:Math.max(.05,ctrlPos(c1,_a).distanceTo(ctrlPos(c2,_b))),s0:VR.scale};}else twoHand=null;}
 const ctrls=[0,1].map(i=>{const c=renderer.xr.getController(i);
   const ray=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-3)]),new THREE.LineBasicMaterial({color:C['gold-soft'],transparent:true,opacity:.55}));
-  c.add(ray);c.addEventListener('select',()=>vrSelect(c));c.addEventListener('squeeze',togglePlay);scene.add(c);return c;});
+  c.add(ray);c.addEventListener('select',()=>vrSelect(c));
+  c.addEventListener('squeezestart',()=>{grabs.set(c,{});rebaseGrabs();});
+  c.addEventListener('squeezeend',()=>{grabs.delete(c);rebaseGrabs();});
+  scene.add(c);return c;});
+function updateGrabs(){
+  if(!grabs.size)return;
+  if(grabs.size===2&&twoHand){const [c1,c2]=[...grabs.keys()];const d=ctrlPos(c1,_a).distanceTo(ctrlPos(c2,_b));setVrScale(twoHand.s0*d/twoHand.d0);return;}
+  if(anchor!=='room')return;
+  grabs.forEach((g,c)=>{if(!g.start)return;ctrlPos(c,_a);VR.offset.copy(g.root).add(_a.sub(g.start));});
+  applyVrTransform();
+}
+const prevBtns=new Map();
+function vrSticks(dt){
+  const s=renderer.xr.getSession&&renderer.xr.getSession();if(!s)return;
+  const dz=v=>Math.abs(v)<.15?0:v;
+  for(const src of s.inputSources){const gp=src.gamepad;if(!gp)continue;
+    const ax=gp.axes||[],x=dz(ax[2]||0),y=dz(ax[3]||0),h=src.handedness;
+    if(h==='right'){
+      if(y)setVrScale(VR.scale*Math.exp(-y*dt*1.1));
+      if(x&&anchor==='room'){VR.yaw-=x*dt*1.4;applyVrTransform();}
+    }else if(h==='left'&&anchor==='room'&&(x||y)){
+      camera.getWorldQuaternion(_q);_f.set(0,0,-1).applyQuaternion(_q);_f.y=0;if(_f.lengthSq()<1e-4)_f.set(0,0,-1);_f.normalize();
+      _u.set(-_f.z,0,_f.x); // right-hand direction on the floor
+      VR.offset.addScaledVector(_f,-y*dt*1.2).addScaledVector(_u,x*dt*1.2);applyVrTransform();
+    }
+    const btn=gp.buttons||[],key=h+'|';
+    const a=!!(btn[4]&&btn[4].pressed),b=!!(btn[5]&&btn[5].pressed);
+    const pa=prevBtns.get(key+'a'),pb=prevBtns.get(key+'b');
+    if(a&&!pa)resetVr();
+    if(b&&!pb)togglePlay();
+    prevBtns.set(key+'a',a);prevBtns.set(key+'b',b);
+  }
+}
 function vrPick(c){const o=new THREE.Vector3().setFromMatrixPosition(c.matrixWorld),q=new THREE.Quaternion();c.getWorldQuaternion(q);
   const d=new THREE.Vector3(0,0,-1).applyQuaternion(q),w=new THREE.Vector3();let best=null,ba=.15;
   ALL.forEach(n=>{P[n].mesh.getWorldPosition(w);const a=w.sub(o).angleTo(d);if(a<ba){ba=a;best=n;}});return best;}
@@ -799,8 +862,9 @@ async function probeXR(){
     vrStatus.textContent=ok?'Headset ready. Sit down before you enter; in Room mode the centre point starts at your head.':'No VR headset here. Open this page in the Meta Quest Browser.';}
   catch(e){vrStatus.textContent='VR is blocked inside this embedded view. Open the standalone file in the Meta Quest Browser instead.';}
 }
-function onXRStart(){cubeRoot.scale.setScalar(VRS);headShell.visible=false;scene.fog=null;vrHud.visible=true;applyAnchor();drawVrHud();vrBtn.textContent='Exit VR';}
-function onXREnd(){scene.add(cubeRoot);cubeRoot.scale.setScalar(1);headShell.visible=true;scene.fog=FOG;vrHud.visible=false;xrSession=null;vrBtn.textContent='Enter VR';listenerIdentity=false;resize();}
+function onXRStart(){headShell.visible=false;scene.fog=null;vrHud.visible=true;applyAnchor();drawVrHud();vrBtn.textContent='Exit VR';}
+function onXREnd(){scene.add(cubeRoot);cubeRoot.scale.setScalar(1);cubeRoot.position.set(0,0,0);cubeRoot.rotation.set(0,0,0);grabs.clear();twoHand=null;
+  headShell.visible=true;scene.fog=FOG;vrHud.visible=false;xrSession=null;vrBtn.textContent='Enter VR';listenerIdentity=false;resize();}
 vrBtn.addEventListener('click',async()=>{
   if(xrSession){xrSession.end();return;}
   setSound(true);
