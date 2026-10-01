@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cube of Twenty-Seven</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&family=Marcellus&display=swap">
+<style>
+/* Layout: an instrument — the 3D skull-cube stage (sticky on wide screens) beside a control-and-reference column; stacks on phones.
+   Palette: night ink with gold (the monad) and silver (the dyad). Committed single dark world, by choice. */
+:root{
+  color-scheme: dark;
+  --ink:#10111a;
+  --panel:#171926;
+  --raise:#202335;
+  --line:#2c3046;
+  --veil:rgba(16,17,26,.74);
+  --fg:#e7e4db;
+  --muted:#9c9eb1;
+  --gold:#dcb65e;
+  --gold-soft:#9d8447;
+  --silver:#b9bdce;
+  --ok:#88c6a2;
+  --bad:#e28c7c;
+  --f-display:"Marcellus","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+html,body{background:var(--ink);color:var(--fg)}
+body{font-family:var(--f-body);font-size:15px;line-height:1.5;padding:0 16px}
+.app{display:grid;gap:16px;padding-block:16px;max-width:1440px;margin:0 auto}
+@media (min-width:900px){.app{grid-template-columns:minmax(0,1fr) 410px;align-items:start}}
+
+/* Stage */
+.stage{position:relative;height:min(58vh,560px);min-height:330px;border-radius:14px;overflow:hidden;background:var(--ink);border:1px solid var(--line)}
+@media (min-width:900px){.stage{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);height:calc(100vh - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));min-height:520px}}
+#gl{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#gl:active{cursor:grabbing}
+.hud-top{position:absolute;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none}
+.readout{display:flex;gap:12px;align-items:center;background:var(--veil);border:1px solid var(--line);border-radius:12px;padding:8px 12px;max-width:60%;min-width:0}
+.rd-num{font-family:var(--f-mono);font-weight:500;font-size:40px;line-height:1;color:var(--gold);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rd-num.small{font-size:22px}
+.rd-meta{min-width:0}
+.rd-title{font-size:14px;font-weight:600;line-height:1.25;color:var(--fg)}
+.rd-sub{font-size:12.5px;color:var(--muted);line-height:1.3;margin-top:2px}
+.views{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end;max-width:40%;pointer-events:auto}
+.chip{font:500 12px/1 var(--f-body);padding:7px 10px;border-radius:999px;border:1px solid var(--line);background:var(--veil);color:var(--muted);cursor:pointer}
+.chip[aria-pressed="true"]{color:var(--fg);border-color:var(--gold-soft)}
+.chip:hover{color:var(--fg)}
+.hud-bottom{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;pointer-events:none;flex-wrap:wrap}
+.sec-label{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);background:var(--veil);border:1px solid var(--line);padding:5px 9px;border-radius:7px}
+.meter{display:flex;gap:10px;background:var(--veil);border:1px solid var(--line);padding:7px 10px;border-radius:999px}
+.meter .grp{display:flex;gap:5px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dot.past{background:var(--gold-soft)}
+.dot.on{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.end-note{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;background:var(--veil);border:1px solid var(--line);border-radius:12px;padding:14px 18px;max-width:80%;pointer-events:none}
+.end-note b{display:block;font-family:var(--f-display);font-weight:400;font-size:22px;color:var(--fg)}
+.end-note span{font-size:13px;color:var(--muted)}
+
+/* Panel */
+.panel{display:flex;flex-direction:column;gap:16px;min-width:0}
+h1{font-family:var(--f-display);font-weight:400;font-size:32px;line-height:1.1;margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{margin:6px 0 0;color:var(--muted);font-size:13.5px;max-width:52ch}
+.modenav{display:flex;flex-direction:column;gap:10px}
+.mgroup{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;align-items:start}
+.mlabel{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:9px}
+.modes{display:flex;flex-wrap:wrap;gap:6px}
+.mode{font:500 13px/1 var(--f-body);padding:9px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer}
+.mode:hover{color:var(--fg)}
+.mode[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--ink)}
+.desc{margin:0;font-size:14.5px;color:var(--fg);max-width:62ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:0}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.tbtn{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--raise);color:var(--fg);cursor:pointer;display:grid;place-items:center;font-size:15px}
+.tbtn.play{width:52px;height:52px;background:var(--gold);border-color:var(--gold);color:var(--ink);font-size:18px}
+.tbtn:hover{border-color:var(--gold-soft)}
+.primary{font:600 13.5px/1 var(--f-body);padding:11px 16px;border-radius:9px;border:1px solid var(--gold);background:var(--gold);color:var(--ink);cursor:pointer}
+.primary:disabled{background:var(--raise);border-color:var(--line);color:var(--muted);cursor:not-allowed}
+.ctl{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.ctl output{font-family:var(--f-mono);color:var(--fg);min-width:3ch;font-variant-numeric:tabular-nums}
+input[type=range]{accent-color:var(--gold);width:130px}
+select{font:500 13px var(--f-body);background:var(--raise);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:100%}
+.toggle{font:500 12.5px/1 var(--f-body);padding:9px 11px;border-radius:8px;border:1px solid var(--line);background:var(--raise);color:var(--muted);cursor:pointer}
+.toggle[aria-pressed="true"]{color:var(--fg);border-color:var(--gold-soft)}
+.toggle:disabled{opacity:.5;cursor:not-allowed}
+.progress{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.progress>i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s}
+.pmeta{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.caption{font-size:12.5px;color:var(--muted);margin:0}
+
+/* Stats */
+.stats{display:flex;flex-direction:column;gap:7px}
+.stat-row{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.stat-row b{font-family:var(--f-mono);font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums}
+.bar{display:grid;grid-template-columns:78px minmax(0,1fr) 40px;gap:10px;align-items:center;font-size:12.5px;color:var(--muted)}
+.bar i{display:block;height:6px;border-radius:6px;background:var(--line);overflow:hidden;position:relative}
+.bar i em{display:block;height:100%;background:var(--gold);border-radius:6px}
+.bar i::after{content:"";position:absolute;left:33.3%;top:-2px;bottom:-2px;width:1px;background:var(--muted);opacity:.6}
+.bar b{font-family:var(--f-mono);font-weight:500;color:var(--fg);text-align:right;font-variant-numeric:tabular-nums}
+
+/* Explore */
+.xp-head{display:flex;gap:14px;align-items:baseline}
+.xp-num{font-family:var(--f-mono);font-size:40px;color:var(--gold);line-height:1}
+.xp-name{font-weight:600}
+.xp-kind{font-size:12.5px;color:var(--muted)}
+.xp-lines{display:grid;gap:6px;margin:0;padding:0;list-style:none}
+.xp-lines li{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;border-top:1px solid var(--line);padding-top:6px}
+.xp-lines li span:last-child{font-family:var(--f-mono);font-variant-numeric:tabular-nums;color:var(--fg);text-align:right}
+.xp-lines li span:first-child{color:var(--muted)}
+
+/* Train */
+.seg{display:flex;gap:4px;background:var(--raise);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{font:500 13px/1 var(--f-body);padding:8px 12px;border:0;border-radius:7px;background:transparent;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:inset 0 0 0 1px var(--gold-soft)}
+.keypad{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}
+.keypad button{font:500 13px/1 var(--f-mono);padding:10px 0;border-radius:6px;border:1px solid var(--line);background:var(--raise);color:var(--fg);cursor:pointer;font-variant-numeric:tabular-nums}
+.keypad button:hover{border-color:var(--gold-soft)}
+.keypad button.ok{background:var(--ok);color:var(--ink);border-color:var(--ok)}
+.keypad button.bad{background:var(--bad);color:var(--ink);border-color:var(--bad)}
+.missed{font-size:13px;color:var(--muted);margin:0}
+.missed b{font-family:var(--f-mono);color:var(--bad);font-weight:500}
+
+/* Map / answer board */
+.layers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.layer h3{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-weight:500}
+.grid9{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+.cell{font:500 13px/1 var(--f-mono);text-align:center;padding:9px 0;border-radius:5px;background:var(--raise);color:var(--muted);border:1px solid transparent;font-variant-numeric:tabular-nums;transition:background .15s,color .15s;cursor:default}
+.cell.held{border-color:var(--gold-soft);color:var(--fg)}
+.cell.act{background:var(--gold);color:var(--ink)}
+.cell.ghost{opacity:.35}
+.layers.live .cell{cursor:pointer}
+.layers.live .cell:hover{border-color:var(--gold)}
+.layers.masked .cell{color:transparent}
+.cell.ok,.layers.masked .cell.ok{background:var(--ok);color:var(--ink)}
+.cell.bad,.layers.masked .cell.bad{background:var(--bad);color:var(--ink)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (max-width:480px){.rd-num{font-size:32px}.views{max-width:46%}.readout{max-width:54%}h1{font-size:28px}}
+</style>
+
+<style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage" id="stage" aria-label="3D cube inside the skull">
+    <canvas id="gl"></canvas>
+    <div class="hud-top">
+      <div class="readout" aria-live="polite">
+        <div class="rd-num" id="rdNum">14</div>
+        <div class="rd-meta"><div class="rd-title" id="rdTitle">centre</div><div class="rd-sub" id="rdSub"></div></div>
+      </div>
+      <div class="views" role="group" aria-label="Camera view">
+        <button class="chip" data-view="you" aria-pressed="true">Your view</button>
+        <button class="chip" data-view="facing" aria-pressed="false">Facing</button>
+        <button class="chip" data-view="side" aria-pressed="false">Side</button>
+        <button class="chip" data-view="top" aria-pressed="false">Top</button>
+        <button class="chip" id="orbitBtn" aria-pressed="false">Orbit</button>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <div class="sec-label" id="secLabel">Install</div>
+      <div class="meter" id="meter" aria-hidden="true"></div>
+    </div>
+    <div class="end-note" id="endNote" hidden><b>Uncounted rest</b><span>Stay still until the next impulse arises on its own.</span></div>
+  </section>
+
+  <aside class="panel">
+    <header>
+      <h1>Cube of Twenty-Seven</h1>
+      <p class="sub">An order-3 magic cube placed inside the skull. Every line of three sums to 42, every slab of nine to 126, and every pair of opposite points to 28.</p>
+    </header>
+
+    <nav class="modenav" aria-label="Modes">
+      <div class="mgroup"><span class="mlabel">Practice</span><div class="modes">
+        <button class="mode" data-mode="session">Full session</button>
+        <button class="mode" data-mode="install">Install</button>
+        <button class="mode" data-mode="star">Axial star</button>
+        <button class="mode" data-mode="walk">Triad walk</button>
+        <button class="mode" data-mode="slabs">Slab holds</button>
+        <button class="mode" data-mode="shells">Shell breathing</button>
+        <button class="mode" data-mode="close">Close</button>
+      </div></div>
+      <div class="mgroup"><span class="mlabel">Blind</span><div class="modes">
+        <button class="mode" data-mode="blindrun">Blind walk</button>
+        <button class="mode" data-mode="tonetest">Tone test</button>
+      </div></div>
+      <div class="mgroup"><span class="mlabel">Learn</span><div class="modes">
+        <button class="mode" data-mode="explore">Explore</button>
+        <button class="mode" data-mode="train">Train</button>
+      </div></div>
+    </nav>
+
+    <p class="desc" id="desc"></p>
+
+    <div class="card" id="blindCard" hidden>
+      <div class="row">
+        <label class="ctl" for="blindSeq">Sequence <select id="blindSeq"><option value="walk" selected>Triad walk</option><option value="session">Full session</option><option value="install">Install</option><option value="star">Axial star</option><option value="shells">Shell breathing</option></select></label>
+        <label class="ctl" for="cpMode">Checkpoints <select id="cpMode"><option value="random" selected>About once a bar</option><option value="bar">End of every bar</option><option value="off">Off</option></select></label>
+      </div>
+      <div class="row"><button class="toggle" id="peekBtn" aria-pressed="false">Cube hidden</button><button class="toggle" id="cpReset">Reset scores</button></div>
+      <h2>Checkpoints</h2>
+      <div class="stats" id="cpStats"></div>
+    </div>
+
+    <div class="card" id="toneCard" hidden>
+      <div class="row"><button class="primary" id="ttPlay">Play tone</button><button class="toggle" id="ttAgain" disabled>Hear again</button><button class="toggle" id="ttAnchor" aria-pressed="true">Reference tone on</button></div>
+      <div class="row"><label class="ctl" for="ttScope">Points <select id="ttScope"><option value="all">All 27</option><option value="axis">Centre + axis cross</option><option value="corners">Corners</option><option value="edges">Edges</option></select></label><button class="toggle" id="ttReset">Reset scores</button></div>
+      <p class="note" id="ttHint">The reference tone is the centre, 14, heard inside the head. The target follows it.</p>
+      <div class="stats" id="ttStats"></div>
+    </div>
+
+    <div class="card" id="transport">
+      <div class="row">
+        <button class="tbtn" id="restartBtn" aria-label="Restart">⟲</button>
+        <button class="tbtn" id="prevBtn" aria-label="Previous beat">◀</button>
+        <button class="tbtn play" id="playBtn" aria-label="Play">▶</button>
+        <button class="tbtn" id="nextBtn" aria-label="Next beat">▶︎|</button>
+      </div>
+      <div class="progress"><i id="progBar"></i></div>
+      <div class="pmeta"><span id="progBeat">Beat 1 of 1</span><span id="progTime">0:00 left</span></div>
+      <div class="row">
+        <label class="ctl" for="bpm">Tempo <input type="range" id="bpm" min="24" max="120" step="1" value="60"><output id="bpmOut">60</output> bpm</label>
+        <label class="ctl" for="passes" id="passesWrap">Walk passes <select id="passes"><option>1</option><option>2</option><option selected>3</option><option>6</option><option>9</option></select></label>
+      </div>
+    </div>
+
+    <div class="card" id="exploreCard" hidden>
+      <h2>Point</h2>
+      <div class="xp-head"><div class="xp-num" id="xpNum">14</div><div><div class="xp-name" id="xpName">centre</div><div class="xp-kind" id="xpKind"></div></div></div>
+      <ul class="xp-lines" id="xpLines"></ul>
+    </div>
+
+    <div class="card" id="trainCard" hidden>
+      <div class="row">
+        <div class="seg" role="group" aria-label="Drill">
+          <button id="drillLocate" aria-pressed="true">Locate</button>
+          <button id="drillName" aria-pressed="false">Name</button>
+        </div>
+        <label class="ctl" for="scope">Points <select id="scope"><option value="all">All 27</option><option value="axis">Centre + axis cross</option><option value="corners">Corners</option><option value="edges">Edges</option></select></label>
+      </div>
+      <p class="note" id="trainHint">Tap the point in the cube for the number shown.</p>
+      <div class="keypad" id="keypad" hidden></div>
+      <div class="stat-row"><span>Correct <b id="scOk">0</b> / <b id="scN">0</b></span><span>Streak <b id="scStreak">0</b></span><span>Best <b id="scBest">0</b></span></div>
+      <p class="missed" id="missed"></p>
+    </div>
+
+    <div class="card">
+      <h2>Sound</h2>
+      <div class="row">
+        <button class="toggle" id="soundBtn" aria-pressed="false">Sound off</button>
+        <button class="toggle" id="labelsBtn" aria-pressed="true">Numbers shown</button>
+        <label class="ctl" for="cue">Cues <select id="cue"><option value="both">Space + tone code</option><option value="spatial">Space only</option><option value="pitch">Tone code only</option></select></label>
+      </div>
+      <p class="note">Use headphones. Space places each tone in its direction around the head; the centre always sounds inside the head. The tone code adds height as register (base low, crown high), depth as chord tone (back root, middle third, front fifth) and side as timbre (left soft, centre hollow, right bright).</p>
+    </div>
+
+    <div class="card">
+      <h2>Map</h2>
+      <div class="layers" id="layers"></div>
+      <p class="caption" id="mapCaption">Rows run back to front, columns left to right, as you sit inside the head. Each layer sums to 126.</p>
+    </div>
+
+    <div class="card">
+      <h2>Meta Quest</h2>
+      <div class="row">
+        <label class="ctl" for="anchor">Anchor <select id="anchor"><option value="room">Room · you sit at the centre</option><option value="head">Head · the cube turns with you</option></select></label>
+        <button class="primary" id="vrBtn" disabled>Enter VR</button>
+      </div>
+      <p class="note" id="vrStatus">Checking for a headset…</p>
+      <p class="note">In VR, the trigger (or a pinch) points at a cube position to answer or inspect, and toggles play in practice modes. The grip button also toggles play. Choose the mode here before you enter.</p>
+    </div>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+/* ---------- The magic cube (order 3, constant 42). L[depth][height][x]; depth 0=back, height 0=base, x 0=left ---------- */
+const L=[[[8,24,10],[12,7,23],[22,11,9]],[[15,1,26],[25,14,3],[2,27,13]],[[19,17,6],[5,21,16],[18,4,20]]];
+const POS={};for(let D=0;D<3;D++)for(let V=0;V<3;V++)for(let X=0;X<3;X++)POS[L[D][V][X]]={X,V,D};
+const AT=(X,V,D)=>L[D][V][X];
+const ALL=Array.from({length:27},(_,i)=>i+1);
+const FACES=[1,27,25,3,7,21],CORNERS=[8,20,10,18,22,6,9,19],EDGES=[24,4,15,13,12,16,2,26,5,23,17,11];
+const kindOf=n=>{const p=POS[n];return['centre','face centre','edge','corner'][(p.X!==1)+(p.V!==1)+(p.D!==1)];};
+const SPECIAL={14:'centre',1:'skull base',27:'crown',25:'left temple',3:'right temple',7:'occiput',21:'brow'};
+function nameOf(n){if(SPECIAL[n])return SPECIAL[n];const p=POS[n],a=[];if(p.V!==1)a.push(p.V===2?'upper':'lower');if(p.D!==1)a.push(p.D===2?'front':'back');if(p.X!==1)a.push(p.X===0?'left':'right');return a.join('-')+' '+kindOf(n);}
+const LINES=[[1,27,'Axis'],[25,3,'Axis'],[7,21,'Axis'],[8,20,'Space diagonal'],[10,18,'Space diagonal'],[22,6,'Space diagonal'],[9,19,'Space diagonal'],[24,4,'Mid-plane diagonal'],[15,13,'Mid-plane diagonal'],[12,16,'Mid-plane diagonal'],[2,26,'Mid-plane diagonal'],[5,23,'Mid-plane diagonal'],[17,11,'Mid-plane diagonal']];
+const slabPts=(ax,k)=>ALL.filter(n=>POS[n][ax]===k);
+const slabCentre=(ax,k)=>ax==='X'?AT(k,1,1):ax==='V'?AT(1,k,1):AT(1,1,k);
+const SLABS=[['V',0,'Lower slab'],['V',1,'Middle transverse slab'],['V',2,'Upper slab'],['X',0,'Left slab'],['X',1,'Middle sagittal slab'],['X',2,'Right slab'],['D',0,'Back slab'],['D',1,'Middle coronal slab'],['D',2,'Front slab']];
+function axisLines(n){const p=POS[n];return[{name:'Left to right',pts:[0,1,2].map(x=>AT(x,p.V,p.D))},{name:'Base to crown',pts:[0,1,2].map(v=>AT(p.X,v,p.D))},{name:'Back to front',pts:[0,1,2].map(d=>AT(p.X,p.V,d))}];}
+const poolFor=s=>s==='axis'?[14,...FACES]:s==='corners'?CORNERS:s==='edges'?EDGES:ALL;
+
+/* ---------- Beat sequences ---------- */
+const B=o=>Object.assign({section:'',label:'',big:'',title:'',note:'',active:[],held:[],installed:null,trail:[],lines:[],slab:null,accent:0,meter:null,rest:false,sound:'pts',chord:null,end:false},o);
+function bInstall(){
+  const order=[14,1,27,25,3,7,21,8,20,10,18,22,6,9,19,24,4,15,13,12,16,2,26,5,23,17,11];
+  const grp=i=>i===0?'Centre':i<=6?'Axis cross':i<=14?'Corners':'Edges';
+  return order.map((n,i)=>{const done=i>=2&&i%2===0,prev=order[i-1];
+    return B({section:'Install',label:grp(i)+' · '+(i+1)+'/27',big:String(n),title:nameOf(n),
+      note:i===0?'the core of the head, midpoint of 1 to 27':done?`${prev} + 14 + ${n} = 42`:`its opposite, ${28-n}, comes next`,
+      active:[n],installed:order.slice(0,i+1),lines:done?[{a:prev,b:n,o:.85}]:[],
+      accent:(i===0||i===1||i===7||i===15)?2:(i%2===1?1:0)});});
+}
+function bStar(){
+  const out=[];
+  LINES.forEach(([a,b,t],li)=>{for(let k=0;k<3;k++)out.push(B({section:'Axial star',label:`${t} · line ${li+1}/13`,big:`${a}·14·${b}`,title:`${nameOf(a)} ↔ ${nameOf(b)}`,note:`${a} + 14 + ${b} = 42 · beat ${k+1}/3`,
+    active:[a,14,b],lines:[{a,b,o:.9}],accent:k===0?((li===0||li===3||li===7)?2:1):0,sound:k===0?'chord':'tick',chord:[a,14,b]}));});
+  for(let k=0;k<9;k++)out.push(B({section:'Axial star',label:'All 13 lines',big:'42',title:'The axial star',note:'every line through the centre sums to 42',
+    held:ALL.slice(),active:[14],lines:LINES.map(l=>({a:l[0],b:l[1],o:.55})),meter:k,accent:k===0?2:(k%3===0?1:0),sound:k===0?'chord':'tick',chord:[1,14,27]}));
+  return out;
+}
+function walkPass(p,total,dir){
+  const out=[];
+  for(let k=1;k<=27;k++){
+    const n=dir>0?k:28-k,prevs=[];
+    for(let j=1;j<=4;j++){const kk=k-j;if(kk<1)break;prevs.push(dir>0?kk:28-kk);}
+    const lines=[];let last=n;prevs.forEach((q,i)=>{lines.push({a:q,b:last,o:.85-i*.2});last=q;});
+    const pos=(k-1)%9;
+    out.push(B({section:'Triad walk',label:`${dir>0?'Forward':'Reverse'} pass ${p}/${total}`,big:String(n),title:nameOf(n),
+      note:`nonet ${Math.floor((k-1)/9)+1} · triad ${Math.floor(pos/3)+1} · step ${k}/27`,active:[n],trail:prevs,lines,meter:pos,accent:pos===0?2:(pos%3===0?1:0)}));
+  }
+  return out;
+}
+function bWalk(passes){const out=[];for(let p=1;p<=passes;p++)out.push(...walkPass(p,passes,1));for(let p=1;p<=passes;p++)out.push(...walkPass(p,passes,-1));return out;}
+function bSlabs(){
+  const out=[];
+  SLABS.forEach(([ax,k,nm])=>{const pts=slabPts(ax,k);
+    for(let b=0;b<9;b++)out.push(B({section:'Slab holds',label:nm,big:'126',title:nm,note:`nine points as one plane · beat ${b+1}/9`,
+      held:pts,slab:{ax,k},meter:b,accent:b===0?2:(b%3===0?1:0),sound:b===0?'chord':'tick',chord:[Math.min(...pts),slabCentre(ax,k),Math.max(...pts)]}));});
+  return out;
+}
+function bShells(breaths){
+  const shells=[[14],FACES,EDGES,CORNERS],names=['centre','face centres','edges','corners'],out=[];
+  const pick=s=>s.length<=3?s:[s[0],s[Math.floor(s.length/2)],s[s.length-1]];
+  for(let r=1;r<=breaths;r++){
+    for(let i=0;i<4;i++){const held=shells.slice(0,i+1).flat();
+      out.push(B({section:'Shell breathing',label:`Breath ${r}/${breaths} · inhale`,big:String(held.length),title:`Inhale · ${names[i]}`,note:`${held.length} points open`,
+        active:shells[i],held,accent:i===0?2:0,sound:'chord',chord:pick(shells[i])}));}
+    const ex=[['corners',3],['edges',2],['face centres',1],['to 14',1]];
+    ex.forEach(([nm,keep],j)=>{const held=shells.slice(0,keep).flat();
+      out.push(B({section:'Shell breathing',label:`Breath ${r}/${breaths} · exhale`,big:String(held.length),title:j===3?'Exhale · return to 14':`Exhale · release ${nm}`,note:`${held.length} point${held.length>1?'s':''} remain`,
+        held,active:j===3?[14]:[],accent:0,sound:'tick'}));});
+  }
+  return out;
+}
+function bClose(){
+  const out=[],lower=slabPts('V',0);
+  for(let k=0;k<9;k++)out.push(B({section:'Close',label:'Lower slab',big:'126',title:'Lower slab',note:`settle the weight downward · beat ${k+1}/9`,held:lower,slab:{ax:'V',k:0},meter:k,accent:k===0?2:(k%3===0?1:0),sound:k===0?'chord':'tick',chord:[Math.min(...lower),1,Math.max(...lower)]}));
+  for(let k=0;k<3;k++)out.push(B({section:'Close',label:'Return to centre',big:'14',title:'centre',note:`beat ${k+1}/3`,active:[14],accent:k===0?2:0,sound:k===0?'pts':'tick'}));
+  for(let k=0;k<9;k++)out.push(B({section:'Close',label:'Counted rest',big:'0',title:'Counted rest',note:'silence, with the count running inside',rest:true,meter:k,sound:null}));
+  out.push(B({section:'Close',label:'Uncounted rest',big:'0',title:'Uncounted rest',note:'stay still until the next impulse arises on its own',rest:true,sound:null,end:true}));
+  return out;
+}
+function build(m){
+  const passes=+document.getElementById('passes').value;
+  if(m==='blindrun')m=document.getElementById('blindSeq').value;
+  switch(m){
+    case'install':return bInstall();
+    case'star':return bStar();
+    case'walk':return bWalk(passes);
+    case'slabs':return bSlabs();
+    case'shells':return bShells(3);
+    case'close':return bClose();
+    case'session':return[...bInstall(),...bStar(),...bWalk(passes),...bSlabs(),...bShells(3),...bClose()];
+  }
+  return[];
+}
+const BEAT_MODES=['session','install','star','walk','slabs','shells','close','blindrun'];
+const DESC={
+  session:'Runs the whole protocol in order: Install, Axial star, Triad walk, Slab holds, Shell breathing, Close. Follow the gold point with attention, not with the eyes.',
+  install:'Place each point inside your skull as it lights. Start at the centre, then the axis cross, then the corners and edges in opposite pairs. Placed points stay lit.',
+  star:'Hold both ends of each line at once and feel the line pass through 14. Three axes, four space diagonals, six mid-plane diagonals. Every line sums to 42.',
+  walk:'Touch one point per beat, 1 to 27 and back. Each bar is 9/8, felt as 3 + 3 + 3: one bar per nonet, one dotted beat per triad. The path wraps through the walls, so follow its direction rather than its distance.',
+  slabs:'Hold all nine points of a slab as a single plane for nine beats. Transverse first, then sagittal, then coronal. Every slab sums to 126.',
+  shells:'Inhale outward through the shells: centre, face centres, edges, corners. Exhale back to 14. Slow the tempo until four beats match one breath.',
+  close:'Settle into the lower slab, return to 14, then rest. When the counted rest ends, stay still until the next impulse comes on its own.',
+  blindrun:'The cube goes dark and only the tones remain. Close your eyes and move attention to each point as it sounds. At a checkpoint the run pauses and asks where you are: open your eyes and tap the position on the map or in the cube, and the run continues.',
+  tonetest:'One tone sounds from one of the 27 positions. Find it by feel, then tap its position on the map or in the cube. The bars show which directions you hear reliably. Chance is 33% per axis and 4% for the exact point.',
+  explore:'Tap any point to see its position, its opposite point and the three straight lines through it, and to hear its tone. Each line sums to 42.',
+  train:'Numbers hide while you train. Locate shows a number and you tap its position. Name lights a point and you pick its number.'
+};
+
+/* ---------- Three.js scene ---------- */
+const $=id=>document.getElementById(id);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const stage=$('stage'),canvas=$('gl');
+const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const C={};['ink','gold','gold-soft','silver','muted','ok','bad','fg'].forEach(k=>C[k]=new THREE.Color(css('--'+k)));
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.setClearColor(C.ink,1);
+renderer.xr.enabled=true;
+const scene=new THREE.Scene();
+const FOG=new THREE.Fog(C.ink,5.4,11);scene.fog=FOG;
+const camera=new THREE.PerspectiveCamera(38,1,.05,60);scene.add(camera);
+const S=.95,VRS=1.15;
+const cubeRoot=new THREE.Group();scene.add(cubeRoot);
+const wpos=n=>{const p=POS[n];return new THREE.Vector3((p.X-1)*S,(p.V-1)*S,-(p.D-1)*S);}; // the head faces -z
+
+function textSprite(txt,{w=256,h=64,size=30,weight=500,family=null,color='#ffffff',scale=[.6,.15]}={}){
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const draw=()=>{const g=cv.getContext('2d');g.clearRect(0,0,w,h);g.fillStyle=color;g.textAlign='center';g.textBaseline='middle';
+    g.font=`${weight} ${size}px ${family||'"Instrument Sans", system-ui, sans-serif'}`;g.fillText(txt,w/2,h/2+1);};
+  draw();const tex=new THREE.CanvasTexture(cv);tex.minFilter=THREE.LinearFilter;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,fog:true}));
+  s.scale.set(scale[0],scale[1],1);s.userData.redraw=()=>{draw();tex.needsUpdate=true;};return s;
+}
+const headShell=new THREE.Mesh(new THREE.SphereGeometry(2,48,32),new THREE.MeshBasicMaterial({color:C.silver,transparent:true,opacity:.035,side:THREE.BackSide,depthWrite:false}));
+const head=new THREE.Group();head.scale.set(.93,1.07,1.03);head.add(headShell);
+function ring(plane){const pts=[];for(let i=0;i<=128;i++){const a=i/128*Math.PI*2,c=Math.cos(a)*2,s=Math.sin(a)*2;pts.push(plane==='t'?new THREE.Vector3(c,0,s):plane==='c'?new THREE.Vector3(c,s,0):new THREE.Vector3(0,c,s));}
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:C.muted,transparent:true,opacity:.2,depthWrite:false}));}
+head.add(ring('t'),ring('c'),ring('s'));
+const nose=new THREE.Mesh(new THREE.ConeGeometry(.07,.2,14),new THREE.MeshBasicMaterial({color:C['gold-soft']}));nose.rotation.x=-Math.PI/2;nose.position.set(0,0,-2.06);head.add(nose);
+cubeRoot.add(head);
+const marks=[];
+[['FRONT',0,-.28,-2.3],['BACK',0,-.28,2.3],['CROWN',0,2.42,0],['LEFT',-2.12,-.28,0],['RIGHT',2.12,-.28,0]].forEach(([t,x,y,z])=>{const s=textSprite(t,{size:22,weight:600,color:'#9c9eb1',scale:[.62,.155]});s.position.set(x,y,z);s.material.opacity=.7;cubeRoot.add(s);marks.push(s);});
+const lat=[];for(let a=0;a<3;a++)for(let b=0;b<3;b++){const u=(a-1)*S,v=(b-1)*S;lat.push(-S,u,v,S,u,v,u,-S,v,u,S,v,u,v,-S,u,v,S);}
+const latG=new THREE.BufferGeometry();latG.setAttribute('position',new THREE.Float32BufferAttribute(lat,3));
+const latMat=new THREE.LineBasicMaterial({color:C.muted,transparent:true,opacity:.14,depthWrite:false});
+cubeRoot.add(new THREE.LineSegments(latG,latMat));
+const gcv=document.createElement('canvas');gcv.width=gcv.height=128;{const g=gcv.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.25,'rgba(255,255,255,.45)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,128,128);}
+const glowTex=new THREE.CanvasTexture(gcv);
+const sphGeo=new THREE.SphereGeometry(.075,20,14);
+const P={};
+ALL.forEach(n=>{
+  const pos=wpos(n);
+  const mesh=new THREE.Mesh(sphGeo,new THREE.MeshBasicMaterial({color:C.silver.clone(),transparent:true,opacity:.6}));mesh.position.copy(pos);cubeRoot.add(mesh);
+  const glow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:C.gold.clone(),transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));glow.position.copy(pos);cubeRoot.add(glow);
+  const label=textSprite(String(n),{w:128,h:96,size:62,family:'"IBM Plex Mono", ui-monospace, monospace',scale:[.29,.2175]});
+  label.position.copy(pos).add(new THREE.Vector3(0,.17,0));cubeRoot.add(label);
+  P[n]={pos,mesh,glow,label,op:.6,sc:1,gl:0,lo:.5,col:C.silver.clone(),lcol:C.silver.clone()};
+});
+if(document.fonts&&document.fonts.load){Promise.all([document.fonts.load('500 62px "IBM Plex Mono"'),document.fonts.load('600 22px "Instrument Sans"')]).then(()=>{ALL.forEach(n=>P[n].label.userData.redraw());marks.forEach(m=>m.userData.redraw());drawVrHud();}).catch(()=>{});}
+const slabMesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshBasicMaterial({color:C.gold,transparent:true,opacity:.07,depthWrite:false}));slabMesh.visible=false;cubeRoot.add(slabMesh);
+const lineGroup=new THREE.Group();cubeRoot.add(lineGroup);
+
+/* VR heads-up panel, fixed below the line of sight */
+const hudCv=document.createElement('canvas');hudCv.width=1024;hudCv.height=300;
+const hudTex=new THREE.CanvasTexture(hudCv);
+const vrHud=new THREE.Mesh(new THREE.PlaneGeometry(.6,.176),new THREE.MeshBasicMaterial({map:hudTex,transparent:true,depthTest:false,depthWrite:false,fog:false}));
+vrHud.position.set(0,-.32,-1);vrHud.renderOrder=999;vrHud.visible=false;camera.add(vrHud);
+const hudState={big:'14',title:'centre',sub:'',section:''};
+function drawVrHud(){
+  const g=hudCv.getContext('2d'),w=hudCv.width,h=hudCv.height;g.clearRect(0,0,w,h);
+  g.fillStyle='rgba(16,17,26,.82)';g.strokeStyle='rgba(157,132,71,.7)';g.lineWidth=3;
+  const r=36;g.beginPath();g.moveTo(r,2);g.arcTo(w-2,2,w-2,h-2,r);g.arcTo(w-2,h-2,2,h-2,r);g.arcTo(2,h-2,2,2,r);g.arcTo(2,2,w-2,2,r);g.closePath();g.fill();g.stroke();
+  g.textBaseline='middle';g.textAlign='left';
+  const big=String(hudState.big);g.fillStyle=css('--gold');g.font=`500 ${big.length>3?72:128}px "IBM Plex Mono", monospace`;g.fillText(big,40,h/2+4);
+  const bx=big.length>3?420:300;
+  g.fillStyle=css('--fg');g.font='600 48px "Instrument Sans", sans-serif';g.fillText(hudState.title.slice(0,30),bx,100);
+  g.fillStyle=css('--muted');g.font='400 34px "Instrument Sans", sans-serif';g.fillText(hudState.sub.slice(0,40),bx,160);
+  g.font='600 26px "Instrument Sans", sans-serif';g.fillText(hudState.section.toUpperCase().slice(0,48),bx,222);
+  hudTex.needsUpdate=true;
+}
+drawVrHud();
+
+/* ---------- Visual state ---------- */
+const vis={active:new Set([14]),held:new Set(),installed:null,trail:new Map(),reveal:new Set(),rest:false,blind:false,flash:null};
+let labelsOn=true;
+function setLines(list){
+  while(lineGroup.children.length){const c=lineGroup.children.pop();c.geometry.dispose();c.material.dispose();}
+  list.forEach(l=>{const g=new THREE.BufferGeometry().setFromPoints([P[l.a].pos,P[l.b].pos]);
+    lineGroup.add(new THREE.Line(g,new THREE.LineBasicMaterial({color:l.c||C.gold,transparent:true,opacity:l.o==null?.8:l.o,depthWrite:false})));});
+}
+function setSlab(sl){
+  if(!sl){slabMesh.visible=false;return;}
+  const ext=2*S+.45,th=.05;slabMesh.visible=true;
+  if(sl.ax==='X'){slabMesh.scale.set(th,ext,ext);slabMesh.position.set((sl.k-1)*S,0,0);}
+  else if(sl.ax==='V'){slabMesh.scale.set(ext,th,ext);slabMesh.position.set(0,(sl.k-1)*S,0);}
+  else{slabMesh.scale.set(ext,ext,th);slabMesh.position.set(0,0,-(sl.k-1)*S);}
+}
+function setVis(o){
+  vis.active=new Set(o.active||[]);vis.held=new Set(o.held||[]);vis.installed=o.installed?new Set(o.installed):null;
+  vis.trail=new Map((o.trail||[]).map((n,i)=>[n,i]));vis.reveal=new Set(o.reveal||[]);vis.rest=!!o.rest;vis.flash=o.flash||null;vis.blind=!!o.blind;
+  setLines(vis.blind?[]:(o.lines||[]));setSlab(vis.blind?null:(o.slab||null));
+  latMat.opacity=vis.blind?.05:.14;
+  setLegend();
+}
+function targets(n){
+  let col=C.silver,op=.55,sc=1,gl=0,lo=labelsOn?.55:0,lcol=C.silver;
+  if(vis.installed&&!vis.installed.has(n)){op=.09;lo=labelsOn?.08:0;}
+  if(vis.rest){op=.2;lo=labelsOn?.15:0;}
+  if(vis.trail.has(n)){const a=vis.trail.get(n);col=C['gold-soft'];op=.9-a*.15;sc=1.2;gl=.2-a*.04;lo=labelsOn?.8:0;lcol=C['gold-soft'];}
+  if(vis.held.has(n)){col=C['gold-soft'];op=.95;sc=1.3;gl=.3;lo=labelsOn?.92:0;lcol=C.gold;}
+  if(vis.active.has(n)){col=C.gold;op=1;sc=1.9;gl=.95;lo=labelsOn?1:0;lcol=C.gold;}
+  if(vis.blind){col=C.silver;op=0;sc=1;gl=0;lo=0;}
+  if(vis.reveal.has(n)){lo=1;if(vis.blind)op=.6;}
+  if(vis.flash&&vis.flash.n===n){col=vis.flash.c;lcol=vis.flash.c;op=1;sc=2.1;gl=1;lo=1;}
+  if(vis.flash&&vis.flash.n2===n){col=vis.flash.c2;lcol=vis.flash.c2;op=1;sc=2;gl=.9;lo=1;}
+  return{col,op,sc,gl,lo,lcol};
+}
+
+/* ---------- Camera (browser) ---------- */
+const VIEWS={you:[.42,.32,6.4],facing:[Math.PI-.4,.22,6.4],side:[-Math.PI/2,.12,6.4],top:[.001,1.42,6.6]};
+const cam={th:.42,ph:.32,r:6.4,tth:.42,tph:.32,tr:6.4,orbit:false};
+const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function setView(k){const v=VIEWS[k];cam.tth=cam.th+wrap(v[0]-cam.th);cam.tph=v[1];cam.tr=v[2];
+  document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===k)));
+  if(reduce){cam.th=cam.tth;cam.ph=cam.tph;cam.r=cam.tr;}}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));
+const orbitBtn=$('orbitBtn');
+orbitBtn.addEventListener('click',()=>{cam.orbit=!cam.orbit;orbitBtn.setAttribute('aria-pressed',String(cam.orbit));});
+const ptrs=new Map();let drag=null,pinch=0;
+const pdist=()=>{const a=[...ptrs.values()];return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);};
+canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===1)drag={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,moved:false};else{if(drag)drag.moved=true;pinch=pdist();}});
+canvas.addEventListener('pointermove',e=>{if(!ptrs.has(e.pointerId))return;ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ptrs.size===2){const d=pdist();if(pinch>0){cam.tr=clamp(cam.tr*pinch/d,4,11);cam.r=cam.tr;}pinch=d;return;}
+  if(!drag)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>6)drag.moved=true;
+  if(drag.moved){cam.th-=dx*.008;cam.tth=cam.th;cam.ph=clamp(cam.ph+dy*.008,-1.4,1.45);cam.tph=cam.ph;
+    document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed','false'));}
+  drag.x=e.clientX;drag.y=e.clientY;});
+function endPtr(e){if(drag&&!drag.moved&&ptrs.size===1)tap(e.clientX,e.clientY);ptrs.delete(e.pointerId);if(ptrs.size<2)pinch=0;if(ptrs.size===0)drag=null;}
+canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',e=>{ptrs.delete(e.pointerId);if(!ptrs.size)drag=null;});
+canvas.addEventListener('wheel',e=>{e.preventDefault();cam.tr=clamp(cam.tr*(1+e.deltaY*.0012),4,11);},{passive:false});
+function pick(cx,cy){const r=canvas.getBoundingClientRect();let best=null,bs=1e9;
+  ALL.forEach(n=>{const v=P[n].pos.clone().project(camera);const sx=(v.x+1)/2*r.width+r.left,sy=(1-v.y)/2*r.height+r.top;const d=Math.hypot(sx-cx,sy-cy);
+    if(d<36){const s=d+camera.position.distanceTo(P[n].pos)*4;if(s<bs){bs=s;best=n;}}});return best;}
+
+/* ---------- Render loop ---------- */
+function resize(){if(renderer.xr.isPresenting)return;const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/Math.max(1,r.height);camera.updateProjectionMatrix();}
+if(window.ResizeObserver)new ResizeObserver(resize).observe(stage);else window.addEventListener('resize',resize);
+resize();
+function frame(t){
+  const xrOn=renderer.xr.isPresenting;
+  if(!xrOn){
+    if(cam.orbit&&!drag&&!reduce){cam.th+=.0025;cam.tth=cam.th;}
+    if(!drag){const k=reduce?1:.12;cam.th+=(cam.tth-cam.th)*k;cam.ph+=(cam.tph-cam.ph)*k;}
+    cam.r+=(cam.tr-cam.r)*(reduce?1:.15);
+    const cp=Math.cos(cam.ph);camera.position.set(cam.r*cp*Math.sin(cam.th),cam.r*Math.sin(cam.ph),cam.r*cp*Math.cos(cam.th));camera.lookAt(0,0,0);
+  }
+  const pulse=reduce?1:1+.07*Math.sin(t*.006);
+  ALL.forEach(n=>{const p=P[n],g=targets(n),k=.22;
+    p.op+=(g.op-p.op)*k;p.sc+=(g.sc-p.sc)*k;p.gl+=(g.gl-p.gl)*k;p.lo+=(g.lo-p.lo)*k;
+    p.col.lerp(g.col,.25);p.lcol.lerp(g.lcol,.25);
+    p.mesh.material.color.copy(p.col);p.mesh.material.opacity=p.op;p.mesh.visible=p.op>.01;
+    p.mesh.scale.setScalar(p.sc*(vis.active.has(n)&&!vis.blind?pulse:1));
+    p.glow.material.opacity=p.gl;p.glow.material.color.copy(p.col);p.glow.scale.setScalar(.45+p.gl*.6);
+    p.label.material.opacity=p.lo;p.label.material.color.copy(p.lcol);
+    const ls=vis.active.has(n)?1.25:1;p.label.scale.set(.29*ls,.2175*ls,1);
+  });
+  updateListener(xrOn);
+  renderer.render(scene,camera);
+}
+renderer.setAnimationLoop(frame);
+
+/* ---------- Map / answer board ---------- */
+const layersEl=$('layers');
+[[2,'Upper · crown'],[1,'Middle'],[0,'Lower · base']].forEach(([V,nm])=>{
+  const d=document.createElement('div');d.className='layer';d.innerHTML=`<h3>${nm}</h3>`;const g=document.createElement('div');g.className='grid9';
+  for(let D=0;D<3;D++)for(let X=0;X<3;X++){const n=AT(X,V,D),b=document.createElement('button');b.type='button';b.className='cell';b.id='c'+n;b.dataset.n=n;b.textContent=n;
+    b.addEventListener('click',()=>{if(boardLive())answerPos(n);else if(mode==='explore')inspect(n);});g.appendChild(b);}
+  d.appendChild(g);layersEl.appendChild(d);});
+const maskedMode=()=>mode==='train'||mode==='tonetest'||(mode==='blindrun'&&!peek);
+const boardLive=()=>!!answering&&answering.kind!=='name';
+function setLegend(){
+  const masked=maskedMode();
+  ALL.forEach(n=>{const s=$('c'+n);
+    s.classList.toggle('act',!masked&&vis.active.has(n));
+    s.classList.toggle('held',!masked&&(vis.held.has(n)||vis.trail.has(n))&&!vis.active.has(n));
+    s.classList.toggle('ghost',!masked&&!!vis.installed&&!vis.installed.has(n));
+    s.setAttribute('aria-label',masked?nameOf(n):`${n}, ${nameOf(n)}`);});
+  layersEl.classList.toggle('masked',masked);layersEl.classList.toggle('live',boardLive()||mode==='explore');
+}
+function boardMark(ok,bad){ALL.forEach(n=>$('c'+n).classList.remove('ok','bad'));if(ok)$('c'+ok).classList.add('ok');if(bad)$('c'+bad).classList.add('bad');}
+
+/* ---------- Audio ---------- */
+let actx=null,master=null,soundOn=false,cue='both';
+function ensureAudio(){if(!actx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return false;actx=new AC();master=actx.createGain();master.gain.value=.85;master.connect(actx.destination);}
+  if(actx.state==='suspended')actx.resume();return true;}
+const TIMBRE=['sine','triangle','square'];
+const freqOf=n=>{const p=POS[n];return 110*Math.pow(2,p.V)*[1,1.25,1.5][p.D];};
+function route(n){
+  if(cue==='pitch'||n===14)return master; // the centre is the same in both ears, so it is heard inside the head
+  const p=POS[n],pn=actx.createPanner();pn.panningModel='HRTF';pn.distanceModel='inverse';pn.refDistance=1;pn.rolloffFactor=0;
+  const x=p.X-1,y=p.V-1,z=-(p.D-1);
+  if(pn.positionX){pn.positionX.value=x;pn.positionY.value=y;pn.positionZ.value=z;}else pn.setPosition(x,y,z);
+  pn.connect(master);return pn;
+}
+function voice(n,t,g,dur){
+  dur=dur||1.2;const p=POS[n];
+  const f=cue==='spatial'?330:freqOf(n),type=cue==='spatial'?'sine':TIMBRE[p.X];
+  const o=actx.createOscillator(),v=actx.createGain();o.type=type;o.frequency.value=f;
+  let src=o;
+  if(type==='square'){const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1600;o.connect(lp);src=lp;g*=.42;}
+  else if(type==='triangle')g*=.9;
+  src.connect(v);
+  const o2=actx.createOscillator(),v2=actx.createGain();o2.type='sine';o2.frequency.value=f*2;v2.gain.value=.08;o2.connect(v2);v2.connect(v);
+  v.connect(route(n));
+  v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(g,t+.015);v.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.start(t);o2.start(t);o.stop(t+dur+.05);o2.stop(t+dur+.05);
+}
+function thump(t,g){const o=actx.createOscillator(),v=actx.createGain();o.type='sine';o.frequency.setValueAtTime(72,t);o.frequency.exponentialRampToValueAtTime(42,t+.25);
+  v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(g,t+.008);v.gain.exponentialRampToValueAtTime(.0001,t+.3);o.connect(v);v.connect(master);o.start(t);o.stop(t+.32);}
+function tick(t){const o=actx.createOscillator(),v=actx.createGain();o.type='sine';o.frequency.value=1500;v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(.03,t+.004);v.gain.exponentialRampToValueAtTime(.0001,t+.06);o.connect(v);v.connect(master);o.start(t);o.stop(t+.07);}
+function blip(ok){if(!soundOn||!actx)return;const t=actx.currentTime+.01;const o=actx.createOscillator(),v=actx.createGain();o.type='sine';o.frequency.setValueAtTime(ok?660:220,t);if(ok)o.frequency.setValueAtTime(990,t+.08);
+  v.gain.setValueAtTime(.0001,t);v.gain.exponentialRampToValueAtTime(.1,t+.01);v.gain.exponentialRampToValueAtTime(.0001,t+.3);o.connect(v);v.connect(master);o.start(t);o.stop(t+.32);}
+function playBeat(b){if(!soundOn||!actx)return;const t=actx.currentTime+.02;
+  if(b.rest)return;
+  if(b.accent===2)thump(t,.2);else if(b.accent===1)thump(t,.08);
+  const pts=b.sound==='pts'?b.active:b.sound==='chord'?b.chord:null;
+  if(pts&&pts.length){const k=Math.min(pts.length,3),g=.17/Math.sqrt(k);pts.slice(0,3).forEach(n=>voice(n,t,g));}
+  else if(b.sound==='tick')tick(t);}
+function sayPoint(n,delay){if(!soundOn||!actx)return;voice(n,actx.currentTime+(delay||.02),.18);}
+const _p=new THREE.Vector3(),_q=new THREE.Quaternion(),_f=new THREE.Vector3(),_u=new THREE.Vector3();
+function setListener(px,py,pz,fx,fy,fz,ux,uy,uz){const Ls=actx.listener;
+  if(Ls.positionX){Ls.positionX.value=px;Ls.positionY.value=py;Ls.positionZ.value=pz;Ls.forwardX.value=fx;Ls.forwardY.value=fy;Ls.forwardZ.value=fz;Ls.upX.value=ux;Ls.upY.value=uy;Ls.upZ.value=uz;}
+  else{Ls.setPosition(px,py,pz);Ls.setOrientation(fx,fy,fz,ux,uy,uz);}}
+let listenerIdentity=false;
+function updateListener(xrOn){
+  if(!actx)return;
+  if(xrOn&&anchor==='room'){ // the cube stays in the room, so the ears move through it
+    camera.getWorldPosition(_p);camera.getWorldQuaternion(_q);_f.set(0,0,-1).applyQuaternion(_q);_u.set(0,1,0).applyQuaternion(_q);
+    const k=1/(VRS*S);setListener(_p.x*k,_p.y*k,_p.z*k,_f.x,_f.y,_f.z,_u.x,_u.y,_u.z);listenerIdentity=false;
+  }else if(!listenerIdentity){setListener(0,0,0,0,0,-1,0,1,0);listenerIdentity=true;}
+}
+const soundBtn=$('soundBtn');
+function setSound(on){if(on&&!ensureAudio()){soundBtn.textContent='Sound unavailable';return false;}soundOn=on;soundBtn.setAttribute('aria-pressed',String(on));soundBtn.textContent=on?'Sound on':'Sound off';return true;}
+soundBtn.addEventListener('click',()=>setSound(!soundOn));
+$('cue').addEventListener('change',e=>{cue=e.target.value;});
+const labelsBtn=$('labelsBtn');
+function setLabels(on){labelsOn=on;labelsBtn.setAttribute('aria-pressed',String(on));labelsBtn.textContent=on?'Numbers shown':'Numbers hidden';}
+labelsBtn.addEventListener('click',()=>setLabels(!labelsOn));
+
+/* ---------- HUD ---------- */
+const meterEl=$('meter');
+meterEl.innerHTML=[0,1,2].map(g=>`<div class="grp">${[0,1,2].map(i=>`<span class="dot" data-i="${g*3+i}"></span>`).join('')}</div>`).join('');
+const dots=[...meterEl.querySelectorAll('.dot')];
+function setHud(big,title,sub,section,meter){
+  const rn=$('rdNum');rn.textContent=big;rn.classList.toggle('small',String(big).length>3);
+  $('rdTitle').textContent=title;$('rdSub').textContent=sub;$('secLabel').textContent=section;
+  meterEl.hidden=meter==null;if(meter!=null)dots.forEach((d,i)=>{d.classList.toggle('on',i===meter);d.classList.toggle('past',i<meter);});
+  hudState.big=big;hudState.title=title;hudState.sub=sub;hudState.section=section;if(renderer.xr.isPresenting)drawVrHud();
+}
+
+/* ---------- Player ---------- */
+let mode='session',seq=[],idx=0,playing=false,timer=null,nextAt=0,bpm=60,wake=null,peek=false;
+let answering=null;
+const playBtn=$('playBtn');
+function showBeat(b){
+  const blind=mode==='blindrun'&&!peek;
+  setVis({active:b.active,held:b.held,installed:b.installed,trail:b.trail,lines:b.lines,slab:b.slab,rest:b.rest,blind});
+  if(blind)setHud(b.rest?'0':'·','Eyes closed',b.rest?b.note:'follow the tones',`Blind · ${b.section}`,b.meter);
+  else setHud(b.big,b.title,b.note,`${b.section} · ${b.label}`,b.meter);
+  $('endNote').hidden=!(b.end&&!playing&&idx===seq.length-1);
+  const total=seq.length,left=(total-idx-1)*60/bpm;
+  $('progBar').style.width=(total>1?idx/(total-1)*100:0)+'%';
+  $('progBeat').textContent=`Beat ${idx+1} of ${total}`;
+  $('progTime').textContent=`${Math.floor(left/60)}:${String(Math.round(left%60)).padStart(2,'0')} left`;
+}
+function go(i,sound){if(!seq.length)return;idx=clamp(i,0,seq.length-1);showBeat(seq[idx]);if(sound)playBeat(seq[idx]);}
+function setPlayUI(){playBtn.textContent=playing?'❚❚':'▶';playBtn.setAttribute('aria-label',playing?'Pause':'Play');}
+async function requestWake(){try{if(navigator.wakeLock&&!wake)wake=await navigator.wakeLock.request('screen');}catch(e){wake=null;}}
+function releaseWake(){try{wake&&wake.release();}catch(e){}wake=null;}
+function play(){if(!seq.length)return;if(answering&&answering.kind==='checkpoint'){answering=null;boardMark();}
+  if(idx>=seq.length-1)idx=-1;playing=true;cpResume=false;setPlayUI();requestWake();$('endNote').hidden=true;nextAt=performance.now();tickLoop();}
+function pause(){playing=false;cpResume=false;clearTimeout(timer);setPlayUI();releaseWake();}
+function togglePlay(){if(soundOn)ensureAudio();(playing||cpResume)?pause():play();}
+function tickLoop(){if(!playing)return;go(idx+1,true);
+  if(mode==='blindrun'){sinceCp++;if(shouldCheck(seq[idx])){beginCheckpoint(seq[idx].active[0]);return;}}
+  if(idx>=seq.length-1){timer=setTimeout(()=>{pause();showBeat(seq[idx]);},60000/bpm);return;}
+  nextAt+=60000/bpm;timer=setTimeout(tickLoop,Math.max(0,nextAt-performance.now()));}
+playBtn.addEventListener('click',togglePlay);
+$('prevBtn').addEventListener('click',()=>{pause();go(idx-1,true);});
+$('nextBtn').addEventListener('click',()=>{pause();go(idx+1,true);});
+$('restartBtn').addEventListener('click',()=>{pause();go(0,false);});
+const bpmEl=$('bpm');bpmEl.addEventListener('input',()=>{bpm=+bpmEl.value;$('bpmOut').textContent=bpm;if(seq.length)showBeat(seq[idx]);});
+function rebuild(){pause();answering=null;boardMark();seq=build(mode);go(0,false);}
+$('passes').addEventListener('change',()=>{if(['walk','session','blindrun'].includes(mode))rebuild();});
+$('blindSeq').addEventListener('change',()=>{if(mode==='blindrun'){rebuild();$('passesWrap').hidden=!['walk','session'].includes($('blindSeq').value);}});
+
+/* ---------- Scoring (blind modes) ---------- */
+const newStats=()=>({n:0,exact:0,adj:0,ax:[0,0,0]});
+let CP=newStats(),TT=newStats();
+function score(s,ans,tgt){s.n++;const a=POS[ans],b=POS[tgt],dx=Math.abs(a.X-b.X),dv=Math.abs(a.V-b.V),dd=Math.abs(a.D-b.D);
+  if(ans===tgt)s.exact++;else if(Math.max(dx,dv,dd)<=1)s.adj++;if(!dx)s.ax[0]++;if(!dv)s.ax[1]++;if(!dd)s.ax[2]++;}
+function statsHTML(s){const pc=v=>s.n?Math.round(v/s.n*100):0;
+  return `<div class="stat-row"><span><b>${s.exact}</b> / <b>${s.n}</b> exact</span><span><b>${s.adj}</b> one step off</span><span>exact <b>${pc(s.exact)}%</b></span></div>`+
+    [['Left–right',0],['Height',1],['Depth',2]].map(([l,i])=>`<div class="bar"><span>${l}</span><i><em style="width:${pc(s.ax[i])}%"></em></i><b>${pc(s.ax[i])}%</b></div>`).join('')+
+    `<p class="note">The tick on each bar marks chance (33%).</p>`;}
+function renderStats(){$('cpStats').innerHTML=statsHTML(CP);$('ttStats').innerHTML=statsHTML(TT);}
+
+/* ---------- Blind walk checkpoints ---------- */
+let sinceCp=0,cpResume=false;
+function shouldCheck(b){const m=$('cpMode').value;if(m==='off'||!b||b.rest||b.active.length!==1||sinceCp<6)return false;
+  return m==='bar'?b.meter===8:Math.random()<1/9;}
+function beginCheckpoint(t){clearTimeout(timer);playing=false;cpResume=true;setPlayUI();sinceCp=0;
+  answering={kind:'checkpoint',target:t};boardMark();setLegend();
+  setHud('?','Where are you?','open your eyes and tap the position you just touched','Blind · checkpoint',null);}
+function cpAnswer(n){const t=answering.target;answering=null;score(CP,n,t);renderStats();const ok=n===t;blip(ok);
+  setVis({blind:true,reveal:[t,n],flash:ok?{n,c:C.ok}:{n,c:C.bad,n2:t,c2:C.ok}});boardMark(t,ok?null:n);
+  setHud(String(t),ok?'Correct':`You were at ${t}`,nameOf(t),'Blind · checkpoint',null);sayPoint(t,.35);
+  setTimeout(()=>{boardMark();if(mode!=='blindrun'||!cpResume)return;cpResume=false;playing=true;setPlayUI();nextAt=performance.now()+60000/bpm;timer=setTimeout(tickLoop,60000/bpm);},1700);}
+const peekBtn=$('peekBtn');
+peekBtn.addEventListener('click',()=>{peek=!peek;peekBtn.setAttribute('aria-pressed',String(peek));peekBtn.textContent=peek?'Cube shown':'Cube hidden';if(mode==='blindrun'&&seq.length&&!answering)showBeat(seq[idx]);setLegend();});
+$('cpReset').addEventListener('click',()=>{CP=newStats();renderStats();});
+
+/* ---------- Tone test ---------- */
+let ttTimer=null;
+function ttNext(){clearTimeout(ttTimer);if(!setSound(true))return;const p=poolFor($('ttScope').value);let t;
+  do{t=p[Math.floor(Math.random()*p.length)];}while(p.length>1&&answering&&t===answering.target);
+  answering={kind:'tone',target:t};boardMark();setVis({});setLegend();$('ttAgain').disabled=false;$('ttPlay').textContent='Next tone';
+  setHud('?','Where was it?','tap its position on the map or in the cube','Tone test',null);ttPlay();}
+function ttPlay(){if(!answering||answering.kind!=='tone'||!ensureAudio())return;const t0=actx.currentTime+.06;
+  if($('ttAnchor').getAttribute('aria-pressed')==='true'){voice(14,t0,.16,1);voice(answering.target,t0+.85,.19);}else voice(answering.target,t0,.19);}
+function ttAnswer(n){const t=answering.target;answering=null;score(TT,n,t);renderStats();const ok=n===t;blip(ok);
+  setVis({reveal:[t,n],flash:ok?{n,c:C.ok}:{n,c:C.bad,n2:t,c2:C.ok}});boardMark(t,ok?null:n);
+  setHud(String(t),ok?'Correct':`It was ${t}`,nameOf(t),'Tone test',null);sayPoint(t,.4);
+  ttTimer=setTimeout(()=>{if(mode==='tonetest')ttNext();},2600);}
+$('ttPlay').addEventListener('click',ttNext);
+$('ttAgain').addEventListener('click',()=>{if(answering&&answering.kind==='tone')ttPlay();else if(TT.n)ttNext();});
+$('ttAnchor').addEventListener('click',e=>{const on=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(on));e.currentTarget.textContent=on?'Reference tone on':'Reference tone off';});
+$('ttScope').addEventListener('change',()=>{if(mode==='tonetest'&&answering)ttNext();});
+$('ttReset').addEventListener('click',()=>{TT=newStats();renderStats();});
+
+/* ---------- Explore ---------- */
+function inspect(n){
+  const lines=[];let held=[];
+  if(n===14){held=ALL.slice();LINES.forEach(l=>lines.push({a:l[0],b:l[1],o:.55}));}
+  else{axisLines(n).forEach(al=>{held.push(...al.pts);lines.push({a:al.pts[0],b:al.pts[2],o:.75});});lines.push({a:n,b:28-n,o:.45,c:C.silver});held.push(14,28-n);}
+  setVis({active:[n],held,lines});
+  $('xpNum').textContent=n;$('xpName').textContent=nameOf(n);
+  $('xpKind').textContent=n===14?'centre · on all 13 lines through the middle':`${kindOf(n)} · opposite point ${28-n}`;
+  const rows=axisLines(n).map(al=>`<li><span>${al.name}</span><span>${al.pts.join(' + ')} = 42</span></li>`);
+  if(n!==14)rows.push(`<li><span>Through the centre</span><span>${n} + 14 + ${28-n} = 42</span></li>`);
+  $('xpLines').innerHTML=rows.join('');
+  setHud(String(n),nameOf(n),n===14?'all 13 lines pass through here':`opposite point ${28-n}`,'Explore',null);
+  sayPoint(n);
+}
+
+/* ---------- Train ---------- */
+const T={drill:'locate',scope:'all',target:null,ok:0,n:0,streak:0,best:0,miss:{}};
+try{T.best=+(localStorage.getItem('cube27-best')||0);}catch(e){}
+const keypad=$('keypad');
+ALL.forEach(n=>{const b=document.createElement('button');b.type='button';b.textContent=n;b.dataset.n=n;b.addEventListener('click',()=>{if(answering&&answering.kind==='name')trainAnswer(n);});keypad.appendChild(b);});
+function trainScore(){$('scOk').textContent=T.ok;$('scN').textContent=T.n;$('scStreak').textContent=T.streak;$('scBest').textContent=T.best;
+  const m=Object.entries(T.miss).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  $('missed').innerHTML=m.length?'Most missed: '+m.map(([n,c])=>`<b>${n}</b> (${c})`).join(', '):'';}
+function nextPrompt(){
+  const p=poolFor(T.scope);let t;do{t=p[Math.floor(Math.random()*p.length)];}while(p.length>1&&t===T.target);
+  T.target=t;answering={kind:T.drill,target:t};keypad.querySelectorAll('button').forEach(b=>b.className='');boardMark();
+  if(T.drill==='locate'){setVis({});setHud(String(t),'Find this point','tap its position in the cube or on the map','Train · Locate',null);}
+  else{setVis({active:[t]});setHud('?','Name the lit point','pick its number below','Train · Name',null);}
+}
+function trainAnswer(n){
+  const t=answering.target,kind=answering.kind;answering=null;T.n++;const ok=n===t;
+  if(ok){T.ok++;T.streak++;if(T.streak>T.best){T.best=T.streak;try{localStorage.setItem('cube27-best',String(T.best));}catch(e){}}}
+  else{T.streak=0;T.miss[t]=(T.miss[t]||0)+1;}
+  blip(ok);trainScore();
+  if(kind==='locate'){setVis({reveal:[n,t],flash:ok?{n,c:C.ok}:{n,c:C.bad,n2:t,c2:C.ok}});boardMark(t,ok?null:n);
+    setHud(String(t),ok?'Correct':`That was ${n}`,ok?nameOf(t):`${t} is the ${nameOf(t)}`,'Train · Locate',null);}
+  else{const kb=keypad.querySelector(`[data-n="${n}"]`),kt=keypad.querySelector(`[data-n="${t}"]`);kb.className=ok?'ok':'bad';if(!ok)kt.className='ok';
+    setVis({reveal:[t],flash:{n:t,c:ok?C.ok:C.bad}});setHud(String(t),ok?'Correct':`It was ${t}`,nameOf(t),'Train · Name',null);}
+  setTimeout(()=>{if(mode==='train')nextPrompt();},ok?700:1600);
+}
+function setDrill(d){T.drill=d;$('drillLocate').setAttribute('aria-pressed',String(d==='locate'));$('drillName').setAttribute('aria-pressed',String(d==='name'));
+  keypad.hidden=d!=='name';$('trainHint').textContent=d==='locate'?'Tap the position for the number shown, in the cube or on the map.':'A point lights up. Pick its number.';T.target=null;nextPrompt();}
+$('drillLocate').addEventListener('click',()=>setDrill('locate'));
+$('drillName').addEventListener('click',()=>setDrill('name'));
+$('scope').addEventListener('change',e=>{T.scope=e.target.value;T.target=null;nextPrompt();});
+
+/* ---------- Input routing ---------- */
+function answerPos(n){if(!answering)return;const k=answering.kind;
+  if(k==='locate')trainAnswer(n);else if(k==='tone')ttAnswer(n);else if(k==='checkpoint')cpAnswer(n);}
+function tap(cx,cy){const n=pick(cx,cy);if(n==null)return;
+  if(boardLive())answerPos(n);
+  else if(mode==='explore')inspect(n);
+  else if(mode==='train'||mode==='tonetest'||mode==='blindrun')return;
+  else{setMode('explore');inspect(n);}}
+
+/* ---------- Meta Quest (WebXR) ---------- */
+let anchor='room',xrSession=null;
+const vrBtn=$('vrBtn'),vrStatus=$('vrStatus');
+function applyAnchor(){if(!renderer.xr.isPresenting)return;if(anchor==='head')camera.add(cubeRoot);else scene.add(cubeRoot);cubeRoot.position.set(0,0,0);cubeRoot.quaternion.identity();listenerIdentity=false;}
+$('anchor').addEventListener('change',e=>{anchor=e.target.value;applyAnchor();});
+const ctrls=[0,1].map(i=>{const c=renderer.xr.getController(i);
+  const ray=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,0,-3)]),new THREE.LineBasicMaterial({color:C['gold-soft'],transparent:true,opacity:.55}));
+  c.add(ray);c.addEventListener('select',()=>vrSelect(c));c.addEventListener('squeeze',togglePlay);scene.add(c);return c;});
+function vrPick(c){const o=new THREE.Vector3().setFromMatrixPosition(c.matrixWorld),q=new THREE.Quaternion();c.getWorldQuaternion(q);
+  const d=new THREE.Vector3(0,0,-1).applyQuaternion(q),w=new THREE.Vector3();let best=null,ba=.15;
+  ALL.forEach(n=>{P[n].mesh.getWorldPosition(w);const a=w.sub(o).angleTo(d);if(a<ba){ba=a;best=n;}});return best;}
+function vrSelect(c){const n=vrPick(c);
+  if(boardLive()){if(n!=null)answerPos(n);return;}
+  if(mode==='explore'){if(n!=null)inspect(n);return;}
+  if(mode==='tonetest'){ttNext();return;}
+  if(mode==='train'){return;}
+  togglePlay();}
+async function probeXR(){
+  if(!('xr' in navigator)){vrStatus.textContent='This browser has no WebXR. Open this page in the Meta Quest Browser.';return;}
+  try{const ok=await navigator.xr.isSessionSupported('immersive-vr');vrBtn.disabled=!ok;
+    vrStatus.textContent=ok?'Headset ready. Sit down before you enter; in Room mode the centre point starts at your head.':'No VR headset here. Open this page in the Meta Quest Browser.';}
+  catch(e){vrStatus.textContent='VR is blocked inside this embedded view. Open the standalone file in the Meta Quest Browser instead.';}
+}
+function onXRStart(){cubeRoot.scale.setScalar(VRS);headShell.visible=false;scene.fog=null;vrHud.visible=true;applyAnchor();drawVrHud();vrBtn.textContent='Exit VR';}
+function onXREnd(){scene.add(cubeRoot);cubeRoot.scale.setScalar(1);headShell.visible=true;scene.fog=FOG;vrHud.visible=false;xrSession=null;vrBtn.textContent='Enter VR';listenerIdentity=false;resize();}
+vrBtn.addEventListener('click',async()=>{
+  if(xrSession){xrSession.end();return;}
+  setSound(true);
+  try{const s=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor','hand-tracking']});
+    renderer.xr.setReferenceSpaceType('local');await renderer.xr.setSession(s);xrSession=s;s.addEventListener('end',onXREnd);onXRStart();}
+  catch(e){vrStatus.textContent='VR could not start ('+((e&&e.message)||e)+'). If this is the embedded view, open the standalone file in the Meta Quest Browser.';}
+});
+probeXR();
+
+/* ---------- Modes ---------- */
+let labelsBefore=true;
+const NO_LABEL_MODES=['train','tonetest','blindrun'];
+function setMode(m){
+  pause();clearTimeout(ttTimer);answering=null;boardMark();
+  const was=mode;mode=m;
+  document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===m)));
+  $('desc').textContent=DESC[m];
+  const beat=BEAT_MODES.includes(m);
+  $('transport').hidden=!beat;$('exploreCard').hidden=m!=='explore';$('trainCard').hidden=m!=='train';
+  $('blindCard').hidden=m!=='blindrun';$('toneCard').hidden=m!=='tonetest';
+  $('passesWrap').hidden=!(m==='walk'||m==='session'||(m==='blindrun'&&['walk','session'].includes($('blindSeq').value)));
+  $('endNote').hidden=true;
+  if(NO_LABEL_MODES.includes(m)&&!NO_LABEL_MODES.includes(was)){labelsBefore=labelsOn;setLabels(false);}
+  if(!NO_LABEL_MODES.includes(m)&&NO_LABEL_MODES.includes(was))setLabels(labelsBefore);
+  labelsBtn.disabled=NO_LABEL_MODES.includes(m);
+  $('mapCaption').textContent=maskedMode()?'Answer by position. Rows run back to front, columns left to right, as you sit inside the head.':'Rows run back to front, columns left to right, as you sit inside the head. Each layer sums to 126.';
+  if(m==='blindrun'){sinceCp=0;setSound(true);}
+  if(beat){seq=build(m);go(0,false);}
+  else if(m==='explore')inspect(14);
+  else if(m==='tonetest'){setVis({});$('ttPlay').textContent='Play tone';$('ttAgain').disabled=true;setHud('·','Tone test','press Play tone, then close your eyes','Tone test',null);}
+  else{trainScore();setDrill(T.drill);}
+  setLegend();
+}
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
+document.addEventListener('keydown',e=>{const tg=e.target.tagName;if(tg==='INPUT'||tg==='SELECT'||tg==='BUTTON'&&e.code==='Space')return;
+  if(BEAT_MODES.includes(mode)){
+    if(e.code==='Space'){e.preventDefault();togglePlay();}
+    else if(e.key==='ArrowRight'){pause();go(idx+1,true);}
+    else if(e.key==='ArrowLeft'){pause();go(idx-1,true);}
+  }
+});
+renderStats();
+setMode('session');
+})();
+</script>
+
+</body>
+</html>
